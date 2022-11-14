@@ -92,7 +92,7 @@ app.post('/messages', async (req, res) => {
     if (!usuarioValidar) {
         res.sendStatus(404)
         return;
-    }; 
+    };
 
     const validation = messagesSchema.validate(req.body, { abortEarly: false });
 
@@ -101,7 +101,6 @@ app.post('/messages', async (req, res) => {
         res.status(422).send(erros);
         return;
     }
-
 
     try {
         await db.collection("mensagens").insert({
@@ -115,11 +114,6 @@ app.post('/messages', async (req, res) => {
     } catch (err) {
         res.sendStatus(500)
     }
-
-
-
-
-
 
 })
 
@@ -145,9 +139,54 @@ app.get('/messages', async (req, res) => {
     } catch (error) {
         res.status(500).send(error);
     }
+})
 
+app.post('/status', async (req, res) => {
+    const { user } = req.headers
+
+    const UsuarioValidar = await db.collection('participantes').findOne({ name: user });
+
+    if (!UsuarioValidar) {
+        res.sendStatus(404)
+        return;
+    };
+
+    try {
+        const userOn = { name: user };
+        const attUser = { $set: { lastStatus: Date.now() } };
+
+        await db.collection('participantes').updateOne(userOn, attUser);
+
+        res.sendStatus(200);
+    } catch (error) {
+        res.sendStatus(500);
+    }
 
 })
+
+setInterval(async () => {
+    const participantes = await db.collection('participantes').find().toArray();
+    const participantesOffline = participantes.filter(participant => participant.lastStatus < (Date.now() - 10000));
+
+    try {
+        await db.collection('participantes').deleteMany({ lastStatus: { $lt: (Date.now() - 10000) } });
+
+        participantesOffline.forEach(async (participant) => {
+            await db.collection('messages').insertOne({
+                from: participant.name,
+                to: 'Todos',
+                text: 'sai da sala...',
+                type: 'status',
+                time: dayjs().format('HH:mm:ss')
+            });
+        });
+
+    } catch (err) {
+        console.error(err);
+        res.sendStatus(500);
+    }
+}, 15000);
+
 app.listen(5000, () => console.log("Running in port: 5000"))
 
 
