@@ -35,7 +35,7 @@ try {
 
 app.post('/participants', async (req, res) => {
 
-    const {name} = req.body
+    const { name } = req.body
 
     const validation = participantsSchema.validate(req.body, { abortEarly: false });
 
@@ -45,10 +45,10 @@ app.post('/participants', async (req, res) => {
         return;
     }
 
-    if (await db.collection('participantes').findOne({name: name})) {
-        res.status(409).send({message: 'Usuário já existe'});
+    if (await db.collection('participantes').findOne({ name: name })) {
+        res.status(409).send({ message: 'Usuário já existe' });
         return;
-    } 
+    }
 
     try {
         await db.collection("participantes").insertOne({
@@ -148,55 +148,6 @@ app.get('/messages', async (req, res) => {
 
 
 })
-
-app.post('/status', async (req, res) => {
-    const { user } = req.headers
-
-    const UsuarioValidar = await db.collection('participantes').findOne({ name: user });
-
-    if (!UsuarioValidar) {
-        res.sendStatus(404)
-        return;
-    };
-
-    try {
-        res.sendStatus(200);
-
-        const userOn = { name: user };
-        const attUser = { $set: { lastStatus: Date.now() } };
-
-        await db.collection('participantes').updateOne(userOn, attUser);
-
-    } catch (error) {
-        console.error(error);
-        res.sendStatus(500);
-    }
-
-})
-
-setInterval(async () => {
-    const participantes = await db.collection('participantes').find().toArray();
-    const participantesOffline = participantes.filter(participant => participant.lastStatus < (Date.now() - 10000));
-
-    try {
-        await db.collection('participantes').deleteMany({ lastStatus: { $lt: (Date.now() - 10000) } });
-
-        participantesOffline.forEach(async (participant) => {
-            await db.collection('messages').insertOne({
-                from: participant.name,
-                to: 'Todos',
-                text: 'sai da sala...',
-                type: 'status',
-                time: dayjs().format('HH:mm:ss')
-            });
-        });
-
-    } catch (err) {
-        console.error(err);
-        res.sendStatus(500);
-    }
-}, 15000);
-
 app.listen(5000, () => console.log("Running in port: 5000"))
 
 
